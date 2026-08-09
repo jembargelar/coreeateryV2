@@ -1,4 +1,5 @@
-import { MessageCircle, Clock, MapPin } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { MessageCircle, Clock, MapPin, CalendarDays } from 'lucide-react'
 import { siteConfig, whatsappLink } from '../../data/siteConfig'
 
 export default function ReservationCTA() {
@@ -22,17 +23,26 @@ export default function ReservationCTA() {
           nama, tanggal, jam, dan jumlah tamu.
         </p>
 
-        <a
-          href={whatsappLink(
-            'Halo COREÉATERY, saya ingin reservasi meja atas nama [Nama] untuk tanggal [tanggal] pukul [jam], sejumlah [jumlah] orang.'
-          )}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2.5 rounded-full bg-bone hover:bg-obsidian hover:text-bone transition-colors px-8 py-4 text-base font-semibold text-obsidian mt-8"
-        >
-          <MessageCircle size={19} />
-          Reservasi via WhatsApp
-        </a>
+        <div className="flex flex-wrap justify-center gap-4 mt-8">
+          <Link
+            to="/reservasi"
+            className="inline-flex items-center gap-2.5 rounded-full bg-bone hover:bg-gilt-soft transition-colors px-8 py-4 text-base font-semibold text-obsidian"
+          >
+            <CalendarDays size={19} />
+            Reservasi Online
+          </Link>
+          <a
+            href={whatsappLink(
+              'Halo COREÉATERY, saya ingin reservasi meja atas nama [Nama] untuk tanggal [tanggal] pukul [jam], sejumlah [jumlah] orang.'
+            )}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2.5 rounded-full border border-bone/30 hover:border-bone/60 hover:text-bone transition-colors px-8 py-4 text-base font-semibold text-bone/80"
+          >
+            <MessageCircle size={19} />
+            via WhatsApp
+          </a>
+        </div>
 
         <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 mt-10 font-body text-sm text-bone/80">
           <span className="inline-flex items-center gap-2">

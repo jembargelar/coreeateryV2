@@ -12,7 +12,7 @@ const NAV_LINKS = [
   { label: 'Tentang', to: '/#about' },
   { label: 'Menu', to: '/menu' },
   { label: 'Galeri', to: '/#galeri' },
-  { label: 'Reservasi', to: '/#reservasi' },
+  { label: 'Reservasi', to: '/reservasi' },
   { label: 'Kontak', to: '/#kontak' },
 ]
 
