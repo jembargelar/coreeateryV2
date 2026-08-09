@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Menu, X, MessageCircle } from 'lucide-react'
 import logoIcon from '../../assets/logo-icon-gold.jpg'
 import { siteConfig, whatsappLink } from '../../data/siteConfig'
 
+// `to` pakai path lengkap ("/#about") biar valid diklik dari halaman manapun
+// (bukan cuma dari homepage). ScrollManager yang handle scroll ke section-nya.
+// "Menu" sengaja ke /menu (halaman penuh), bukan anchor ke homepage.
 const NAV_LINKS = [
-  { label: 'Beranda', href: '/#home' },
-  { label: 'Tentang', href: '/#about' },
-  { label: 'Menu', href: '/#menu' },
-  { label: 'Galeri', href: '/#galeri' },
-  { label: 'Reservasi', href: '/#reservasi' },
-  { label: 'Kontak', href: '/#kontak' },
+  { label: 'Beranda', to: '/#home' },
+  { label: 'Tentang', to: '/#about' },
+  { label: 'Menu', to: '/menu' },
+  { label: 'Galeri', to: '/#galeri' },
+  { label: 'Reservasi', to: '/#reservasi' },
+  { label: 'Kontak', to: '/#kontak' },
 ]
 
 export default function Navbar() {
@@ -39,7 +43,7 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto px-5 md:px-8 flex items-center justify-between">
-        <a href="/#home" className="flex items-center gap-2.5 shrink-0">
+        <Link to="/#home" className="flex items-center gap-2.5 shrink-0">
           <img
             src={logoIcon}
             alt="COREÉATERY"
@@ -49,17 +53,17 @@ export default function Navbar() {
             <span className="text-ember-light">CORE</span>
             <span className="text-bone">ÉATERY</span>
           </span>
-        </a>
+        </Link>
 
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <Link
+              key={link.to}
+              to={link.to}
               className="font-body text-sm tracking-wide text-stone hover:text-gilt-soft transition-colors"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -93,14 +97,14 @@ export default function Navbar() {
       >
         <nav className="flex flex-col gap-1 px-5 pb-5">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <Link
+              key={link.to}
+              to={link.to}
               onClick={() => setOpen(false)}
               className="py-3 border-b border-white/5 text-bone font-body text-base"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
           <a
             href={whatsappLink('Halo COREÉATERY, saya ingin bertanya-tanya.')}
