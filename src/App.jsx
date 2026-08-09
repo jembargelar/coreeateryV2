@@ -5,6 +5,7 @@ import ScrollManager from './components/ScrollManager'
 import Home from './pages/Home'
 import MenuPage from './pages/MenuPage'
 import ReservasiPage from './pages/ReservasiPage'
+import GalleryPage from './pages/GalleryPage'
 import ComingSoon from './pages/ComingSoon'
 
 export default function App() {
@@ -17,7 +18,7 @@ export default function App() {
           <Route path="/"          element={<Home />} />
           <Route path="/menu"      element={<MenuPage />} />
           <Route path="/reservasi" element={<ReservasiPage />} />
-          <Route path="/galeri"    element={<ComingSoon title="Galeri Lengkap" />} />
+          <Route path="/galeri"    element={<GalleryPage />} />
           <Route path="*"          element={<ComingSoon title="Halaman" />} />
         </Routes>
       </main>
