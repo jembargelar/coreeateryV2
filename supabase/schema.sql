@@ -132,3 +132,77 @@ create trigger menu_items_updated_at
 -- 2. INSERT INTO public.user_roles (id, role, nama)
 --    VALUES ('<uuid-dari-auth>', 'admin', 'Andrew');
 -- ============================================================
+
+-- ============================================================
+-- TAMBAHAN: tabel untuk admin dashboard
+-- Jalankan setelah schema sebelumnya (tabel reservasi sudah ada)
+-- ============================================================
+
+-- Tabel menu items (sinkron dengan data di frontend, bisa di-CRUD dari dashboard)
+create table if not exists public.menu_items (
+  id           uuid primary key default gen_random_uuid(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  category_id  text not null,        -- e.g. 'nusantara-heritage'
+  category_name text not null,
+  name         text not null,
+  price        text not null,        -- e.g. '38K', '67K / 70K'
+  description  text,
+  badges       text[] default '{}',  -- ['chef','favorite','spicy']
+  image_url    text,
+  is_available boolean not null default true,
+  sort_order   integer default 0
+);
+
+-- Tabel promo / event
+create table if not exists public.promos (
+  id           uuid primary key default gen_random_uuid(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  title        text not null,
+  description  text,
+  image_url    text,
+  valid_from   date,
+  valid_until  date,
+  is_active    boolean not null default true
+);
+
+-- Tabel gallery items
+create table if not exists public.gallery_items (
+  id           uuid primary key default gen_random_uuid(),
+  created_at   timestamptz not null default now(),
+  file_name    text not null,
+  storage_path text not null,   -- path di Supabase Storage bucket 'gallery'
+  alt_text     text not null,
+  category     text not null default 'Semua',
+  sort_order   integer default 0,
+  is_active    boolean not null default true
+);
+
+-- RLS: semua tabel baru hanya bisa diakses authenticated
+alter table public.menu_items   enable row level security;
+alter table public.promos       enable row level security;
+alter table public.gallery_items enable row level security;
+
+create policy "auth read menu_items"    on public.menu_items    for select to authenticated using (true);
+create policy "auth write menu_items"   on public.menu_items    for all    to authenticated using (true);
+create policy "auth read promos"        on public.promos        for select to authenticated using (true);
+create policy "auth write promos"       on public.promos        for all    to authenticated using (true);
+create policy "auth read gallery_items" on public.gallery_items for select to authenticated using (true);
+create policy "auth write gallery_items"on public.gallery_items for all    to authenticated using (true);
+
+-- Public bisa baca menu & promo yang aktif (buat halaman publik nanti)
+create policy "public read available menu" on public.menu_items
+  for select to anon using (is_available = true);
+create policy "public read active promos" on public.promos
+  for select to anon using (is_active = true);
+create policy "public read active gallery" on public.gallery_items
+  for select to anon using (is_active = true);
+
+-- Updated_at auto-trigger
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end $$;
+
+create trigger menu_items_updated_at   before update on public.menu_items   for each row execute function public.set_updated_at();
+create trigger promos_updated_at       before update on public.promos       for each row execute function public.set_updated_at();
