@@ -206,3 +206,37 @@ begin new.updated_at = now(); return new; end $$;
 
 create trigger menu_items_updated_at   before update on public.menu_items   for each row execute function public.set_updated_at();
 create trigger promos_updated_at       before update on public.promos       for each row execute function public.set_updated_at();
+
+-- ============================================================
+-- STORAGE: bucket untuk foto galeri
+-- Jalankan di Supabase SQL Editor SETELAH schema utama
+-- ============================================================
+
+-- Buat storage bucket 'gallery' (public = bisa diakses tanpa auth)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'gallery',
+  'gallery',
+  true,
+  5242880, -- max 5MB per file
+  array['image/jpeg','image/jpg','image/png','image/webp']
+)
+on conflict (id) do nothing;
+
+-- Policy: siapapun bisa lihat/download (public bucket)
+create policy "public read gallery"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'gallery');
+
+-- Policy: hanya authenticated (admin/staff) yang bisa upload
+create policy "auth upload gallery"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'gallery');
+
+-- Policy: hanya authenticated yang bisa hapus
+create policy "auth delete gallery"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'gallery');
