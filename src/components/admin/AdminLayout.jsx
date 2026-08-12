@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation, Navigate } from 'react-router-dom'
 import {
   LayoutDashboard, CalendarCheck, UtensilsCrossed,
-  Image, Tag, LogOut, Menu, ChevronRight, Users
+  Image, Tag, LogOut, Menu, ChevronRight, Users, Home
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import logoIcon from '../../assets/logo-icon-gold.jpg'
 
 const NAV_ADMIN = [
   { to: '/admin',           icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/homepage',  icon: Home,            label: 'Halaman Utama' },
   { to: '/admin/reservasi', icon: CalendarCheck,   label: 'Reservasi' },
   { to: '/admin/menu',      icon: UtensilsCrossed, label: 'Menu' },
   { to: '/admin/galeri',    icon: Image,           label: 'Galeri' },
@@ -32,7 +33,7 @@ function SidebarContent({ navLinks, user, role, signOut, onLinkClick }) {
           <p className="font-body text-[10px] text-stone mt-0.5">Admin Panel</p>
         </div>
       </div>
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navLinks.map(({ to, icon: Icon, label }) => {
           const active = to === '/admin' ? pathname === '/admin' : pathname.startsWith(to)
           return (
@@ -77,12 +78,10 @@ export default function AdminLayout({ children }) {
 
   return (
     <div className="flex min-h-screen bg-obsidian">
-      {/* Desktop sidebar */}
-      <aside className="hidden lg:flex flex-col w-56 bg-charcoal border-r border-white/5 min-h-screen sticky top-0">
-        <SidebarContent navLinks={navLinks} user={user} role={role} signOut={signOut} onLinkClick={()=>{}} />
+      <aside className="hidden lg:flex flex-col w-56 bg-charcoal border-r border-white/5 min-h-screen sticky top-0 max-h-screen">
+        <SidebarContent navLinks={navLinks} user={user} role={role} signOut={signOut} onLinkClick={() => {}} />
       </aside>
 
-      {/* Mobile overlay sidebar */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 bg-obsidian/80" onClick={() => setSidebarOpen(false)} />
@@ -93,7 +92,6 @@ export default function AdminLayout({ children }) {
       )}
 
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Mobile topbar */}
         <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-white/5 bg-charcoal sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="text-bone p-1"><Menu size={22} /></button>
           <span className="font-display font-semibold text-sm text-bone">

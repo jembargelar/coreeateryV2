@@ -1,21 +1,22 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
-import { lazy, Suspense } from "react"
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 import Navbar from './components/layout/Navbar'
 import Footer from './components/layout/Footer'
 import GoogleAnalytics from './components/analytics/GoogleAnalytics'
 import ScrollManager from './components/ScrollManager'
 import { AuthProvider } from './context/AuthContext'
 
-// Public pages — lazy loaded (code splitting per route)
-const Home        = lazy(() => import('./pages/Home'))
-const MenuPage    = lazy(() => import('./pages/MenuPage'))
+// Public pages
+const Home          = lazy(() => import('./pages/Home'))
+const MenuPage      = lazy(() => import('./pages/MenuPage'))
 const ReservasiPage = lazy(() => import('./pages/ReservasiPage'))
-const GalleryPage = lazy(() => import('./pages/GalleryPage'))
-const ComingSoon  = lazy(() => import('./pages/ComingSoon'))
+const GalleryPage   = lazy(() => import('./pages/GalleryPage'))
+const ComingSoon    = lazy(() => import('./pages/ComingSoon'))
 
-// Admin pages — lazy loaded (tidak dimuat sama sekali kecuali ke /admin)
+// Admin pages
 const AdminLogin     = lazy(() => import('./pages/admin/AdminLogin'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const AdminHomepage  = lazy(() => import('./pages/admin/AdminHomepage'))
 const AdminReservasi = lazy(() => import('./pages/admin/AdminReservasi'))
 const AdminMenu      = lazy(() => import('./pages/admin/AdminMenu'))
 const AdminGaleri    = lazy(() => import('./pages/admin/AdminGaleri'))
@@ -39,7 +40,8 @@ function AdminSection() {
           <Route path="*" element={
             <AdminLayout>
               <Routes>
-                <Route index          element={<AdminDashboard />} />
+                <Route index            element={<AdminDashboard />} />
+                <Route path="homepage"  element={<AdminHomepage />} />
                 <Route path="reservasi" element={<AdminReservasi />} />
                 <Route path="menu"      element={<AdminMenu />} />
                 <Route path="galeri"    element={<AdminGaleri />} />

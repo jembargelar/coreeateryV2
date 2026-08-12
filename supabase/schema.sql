@@ -240,3 +240,155 @@ create policy "auth delete gallery"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'gallery');
+
+-- ============================================================
+-- CMS: tabel homepage_sections
+-- Simpan semua konten section homepage yang bisa diedit admin
+-- ============================================================
+
+create table if not exists public.homepage_sections (
+  id           uuid primary key default gen_random_uuid(),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+
+  section_key  text not null unique, -- 'hero' | 'about' | 'menu_favorit' | 'promotion' | 'gallery' | 'reviews' | 'reservation_cta'
+  title        text,
+  subtitle     text,
+  description  text,
+  cta_text     text,
+  cta_url      text,
+  image_path   text,   -- path di Supabase Storage bucket 'homepage'
+  extra        jsonb,  -- data tambahan fleksibel per section (badge, warna, dsb)
+  is_visible   boolean not null default true,
+  sort_order   integer not null default 0
+);
+
+-- Auto updated_at
+create trigger homepage_sections_updated_at
+  before update on public.homepage_sections
+  for each row execute function public.set_updated_at();
+
+-- RLS
+alter table public.homepage_sections enable row level security;
+
+-- Publik bisa baca (buat render homepage)
+create policy "public read homepage_sections"
+  on public.homepage_sections for select
+  to anon, authenticated
+  using (true);
+
+-- Hanya authenticated (admin) yang bisa edit
+create policy "auth write homepage_sections"
+  on public.homepage_sections for all
+  to authenticated
+  using (true);
+
+-- Storage bucket untuk foto homepage
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'homepage',
+  'homepage',
+  true,
+  10485760, -- 10MB (hero image perlu resolusi lebih tinggi)
+  array['image/jpeg','image/jpg','image/png','image/webp']
+)
+on conflict (id) do nothing;
+
+create policy "public read homepage storage"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'homepage');
+
+create policy "auth upload homepage storage"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'homepage');
+
+create policy "auth update homepage storage"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'homepage');
+
+create policy "auth delete homepage storage"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'homepage');
+
+-- ============================================================
+-- SEED: data default semua section (jalankan sekali)
+-- Kalau section sudah ada, skip (on conflict do nothing)
+-- ============================================================
+
+insert into public.homepage_sections (section_key, title, subtitle, description, cta_text, cta_url, extra, is_visible, sort_order) values
+(
+  'hero',
+  'COREÉATERY',
+  'Savor The Taste',
+  'Nusantara, Western, dan Jepang bertemu dalam satu meja — dari steak dan pasta, rice bowl dan soto hangat, hingga dessert artisan. Disajikan dalam suasana premium di jantung Cianjur.',
+  'Lihat Menu',
+  '/menu',
+  '{"cta2_text": "Reservasi Sekarang", "cta2_url": "/reservasi", "badge_text": "Cianjur — Fusion Dining"}',
+  true, 1
+),
+(
+  'about',
+  'Cerita di Balik COREÉATERY',
+  'Tentang Kami',
+  'COREÉATERY hadir merayakan pertemuan tiga dunia rasa — kehangatan Nusantara, kemewahan Western, dan presisi Jepang. Dari kalio khas Padang hingga porterhouse steak, dari rice bowl teriyaki hingga habanero soup, setiap hidangan diracik dengan bahan pilihan dan bumbu yang meresap sempurna.',
+  null,
+  null,
+  '{"visi": "Menjadi ruang makan pilihan yang menghadirkan pengalaman fusion premium, di mana kualitas rasa dan kenyamanan bersanding setara.", "nilai_1_title": "Cita Rasa Otentik", "nilai_1_desc": "Setiap resep diracik dengan bumbu pilihan dan teknik matang yang menjaga keaslian rasa.", "nilai_2_title": "Kualitas Premium", "nilai_2_desc": "Bahan segar, penyajian rapi, dan standar dapur yang konsisten.", "nilai_3_title": "Pengalaman Berkesan", "nilai_3_desc": "Dari sambutan hingga suapan terakhir, kami merancang momen makan yang layak dikenang."}',
+  true, 2
+),
+(
+  'menu_favorit',
+  'Hidangan Pilihan Kami',
+  'Menu Favorit',
+  'Sebagian dari yang paling dicari tamu kami — harga dalam ribuan rupiah (K).',
+  'Lihat Menu Lengkap',
+  '/menu',
+  '{"featured_ids": ["fish-n-fries", "habanero-seafood", "ayam-rempah-bakar", "fettucine-carbonara", "beef-teriyaki-don", "sop-iga-bakar", "chicken-sambal-matah"]}',
+  true, 3
+),
+(
+  'promotion',
+  'Promo & Event Terbaru',
+  'Promo',
+  'Info diskon, menu musiman, dan event spesial kami umumkan lebih dulu di Instagram. Follow @coreeatery biar ga ketinggalan.',
+  'Follow @coreeatery',
+  'https://www.instagram.com/coreeatery',
+  null,
+  true, 4
+),
+(
+  'gallery',
+  'Sekilas dari COREÉATERY',
+  'Galeri',
+  null,
+  'Lihat Semua Foto',
+  '/galeri',
+  null,
+  true, 5
+),
+(
+  'reviews',
+  'Kepuasan Anda Prioritas Kami',
+  'Review',
+  'Sudah makan di COREÉATERY? Bagikan momen berharga Anda lewat Google Review — sebagai ucapan terima kasih, dapatkan ice cream gratis untuk kunjungan berikutnya.',
+  'Tulis Google Review',
+  'https://www.google.com/maps/search/?api=1&query=COREEATERY+Cianjur',
+  null,
+  true, 6
+),
+(
+  'reservation_cta',
+  'Amankan Meja Anda Hari Ini',
+  'Reservasi',
+  'Chat langsung tim kami di WhatsApp untuk reservasi — sebutkan nama, tanggal, jam, dan jumlah tamu.',
+  'Reservasi Online',
+  '/reservasi',
+  '{"cta2_text": "via WhatsApp", "hours": "10.00 – 22.00 WIB", "hours_note": "Setiap hari", "address": "Jl. Mangunsarkoro No.105, Cianjur"}',
+  true, 7
+)
+on conflict (section_key) do nothing;
+
