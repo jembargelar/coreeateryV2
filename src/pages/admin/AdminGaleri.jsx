@@ -4,13 +4,6 @@ import { supabase } from '../../lib/supabaseClient'
 
 const CATS = ['Nusantara', 'Western', 'Rice Bowl', 'Dessert & Drinks', 'Suasana', 'Lainnya']
 
-function getPublicUrl(path) {
-  if (!path) return null
-  if (path.startsWith('http')) return path
-  const { data } = supabase.storage.from('gallery').getPublicUrl(path)
-  return data?.publicUrl ?? null
-}
-
 async function compressImage(file, maxPx = 1200, quality = 0.85) {
   return new Promise((resolve) => {
     const img = document.createElement('img')
@@ -23,9 +16,7 @@ async function compressImage(file, maxPx = 1200, quality = 0.85) {
       const canvas = document.createElement('canvas')
       canvas.width = w; canvas.height = h
       canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      canvas.toBlob(blob => {
-        resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' }))
-      }, 'image/jpeg', quality)
+      canvas.toBlob(blob => resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' })), 'image/jpeg', quality)
     }
     img.src = url
   })
@@ -35,36 +26,52 @@ function UploadCard({ file, category, onDone, onRemove }) {
   const [progress, setProgress] = useState(0)
   const [status, setStatus]     = useState('idle')
   const [error, setError]       = useState(null)
-  const [altText, setAltText]   = useState(file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '))
+  const [alt, setAlt] = useState(file.name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' '))
   const started = useRef(false)
+  const previewUrl = useRef(URL.createObjectURL(file))
 
   const upload = useCallback(async () => {
     if (started.current) return
     started.current = true
-    setStatus('uploading'); setProgress(10)
+    setStatus('uploading'); setProgress(15)
     try {
       const compressed = await compressImage(file)
-      setProgress(35)
+      setProgress(40)
+
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
-      const path = `photos/${fileName}`
-      const { error: upErr } = await supabase.storage.from('gallery')
-        .upload(path, compressed, { contentType: 'image/jpeg', upsert: false })
-      if (upErr) throw upErr
+      const storagePath = `photos/${fileName}`
+
+      const { error: upErr } = await supabase.storage
+        .from('gallery')
+        .upload(storagePath, compressed, { contentType: 'image/jpeg', upsert: false })
+      if (upErr) throw new Error('Upload storage gagal: ' + upErr.message)
       setProgress(70)
+
+      // Dapatkan public URL
+      const { data: urlData } = supabase.storage.from('gallery').getPublicUrl(storagePath)
+      const publicUrl = urlData?.publicUrl
+      if (!publicUrl) throw new Error('Gagal mendapat URL foto dari storage')
+      setProgress(85)
+
+      // Insert ke DB dengan image_url yang sudah ada
       const { error: dbErr } = await supabase.from('gallery_items').insert([{
-        file_name:    fileName,
-        storage_path: path,
-        alt_text:     altText || fileName,
-        category,
-        is_active:    true,
-        sort_order:   0,
+        image_url:  publicUrl,
+        alt:        alt.trim() || fileName,
+        category:   category,
+        sort_order: 0,
+        is_visible: true,
       }])
-      if (dbErr) throw dbErr
-      setProgress(100); setStatus('done'); onDone()
+      if (dbErr) throw new Error('Simpan ke DB gagal: ' + dbErr.message)
+
+      setProgress(100)
+      setStatus('done')
+      onDone()
     } catch (e) {
-      setError(e.message); setStatus('error')
+      console.error(e)
+      setError(e.message)
+      setStatus('error')
     }
-  }, [file, altText, category, onDone])
+  }, [file, alt, category, onDone])
 
   return (
     <div className={`rounded-xl border p-4 space-y-3 ${
@@ -72,12 +79,12 @@ function UploadCard({ file, category, onDone, onRemove }) {
       status === 'error' ? 'border-ember/40 bg-ember/5' : 'border-white/8 bg-charcoal'
     }`}>
       <div className="aspect-[4/3] rounded-lg overflow-hidden bg-obsidian">
-        <img src={URL.createObjectURL(file)} alt={altText} className="w-full h-full object-cover" />
+        <img src={previewUrl.current} alt={alt} className="w-full h-full object-cover" />
       </div>
-      <input value={altText} onChange={e => setAltText(e.target.value)}
+      <input value={alt} onChange={e => setAlt(e.target.value)}
         placeholder="Keterangan foto (contoh: Ayam Bakar Rempah)"
         disabled={status === 'uploading' || status === 'done'}
-        className="w-full bg-obsidian border border-white/10 focus:border-gilt/40 rounded-lg px-3 py-2 text-xs text-bone placeholder:text-stone/50 outline-none disabled:opacity-50" />
+        className="w-full bg-obsidian border border-white/10 focus:border-gilt/40 rounded-lg px-3 py-2 text-xs text-bone placeholder:text-stone/50 outline-none disabled:opacity-50 transition-colors" />
       {status === 'uploading' && (
         <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full bg-gilt rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -86,7 +93,7 @@ function UploadCard({ file, category, onDone, onRemove }) {
       <div className="flex items-center justify-between gap-2">
         {status === 'idle' && (
           <button onClick={upload}
-            className="flex-1 rounded-full bg-gilt hover:bg-gilt-soft text-obsidian py-2 text-xs font-semibold flex items-center justify-center gap-1.5">
+            className="flex-1 rounded-full bg-gilt hover:bg-gilt-soft text-obsidian py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors">
             <Upload size={13} />Upload
           </button>
         )}
@@ -97,17 +104,23 @@ function UploadCard({ file, category, onDone, onRemove }) {
           </span>
         )}
         {status === 'done' && (
-          <span className="text-xs text-green-400 flex items-center gap-1.5"><Check size={13} />Berhasil!</span>
+          <span className="text-xs text-green-400 flex items-center gap-1.5">
+            <Check size={13} />Berhasil!
+          </span>
         )}
         {status === 'error' && (
           <div className="flex-1">
-            <p className="text-[11px] text-ember-light flex items-center gap-1"><AlertCircle size={12} />{error}</p>
+            <p className="text-[11px] text-ember-light flex items-center gap-1 leading-snug">
+              <AlertCircle size={12} className="shrink-0" />{error}
+            </p>
             <button onClick={() => { started.current = false; setStatus('idle'); setError(null) }}
               className="text-[11px] text-gilt-soft underline mt-0.5">Coba lagi</button>
           </div>
         )}
         {status !== 'uploading' && (
-          <button onClick={onRemove} className="p-1.5 text-stone hover:text-ember-light"><X size={16} /></button>
+          <button onClick={onRemove} className="p-1.5 text-stone hover:text-ember-light transition-colors shrink-0">
+            <X size={16} />
+          </button>
         )}
       </div>
     </div>
@@ -115,13 +128,11 @@ function UploadCard({ file, category, onDone, onRemove }) {
 }
 
 function GalleryItemCard({ item, onDelete, onToggle }) {
-  const [imgError, setImgError] = useState(false)
-  const url = getPublicUrl(item.storage_path)
   return (
     <div className="rounded-xl bg-charcoal border border-white/5 overflow-hidden group">
       <div className="aspect-[4/3] bg-obsidian relative overflow-hidden">
-        {!imgError && url ? (
-          <img src={url} alt={item.alt_text} loading="lazy" onError={() => setImgError(true)}
+        {item.image_url ? (
+          <img src={item.image_url} alt={item.alt} loading="lazy"
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -129,18 +140,18 @@ function GalleryItemCard({ item, onDelete, onToggle }) {
           </div>
         )}
         <div className="absolute top-2 left-2">
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${item.is_active ? 'bg-green-900/80 text-green-400' : 'bg-obsidian/80 text-stone'}`}>
-            {item.is_active ? 'Aktif' : 'Nonaktif'}
-          </span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+            item.is_visible ? 'bg-green-900/80 text-green-400' : 'bg-obsidian/80 text-stone'
+          }`}>{item.is_visible ? 'Aktif' : 'Nonaktif'}</span>
         </div>
       </div>
       <div className="p-3 space-y-2">
-        <p className="text-xs text-bone font-medium truncate">{item.alt_text}</p>
+        <p className="text-xs text-bone font-medium truncate">{item.alt}</p>
         <p className="text-[10px] text-stone">{item.category}</p>
         <div className="flex items-center gap-2 pt-1">
           <button onClick={() => onToggle(item)}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
-            {item.is_active ? <ToggleRight size={16} className="text-gilt" /> : <ToggleLeft size={16} className="text-stone" />}
+            className="flex-1 flex items-center justify-center py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            {item.is_visible ? <ToggleRight size={16} className="text-gilt" /> : <ToggleLeft size={16} className="text-stone" />}
           </button>
           <button onClick={() => onDelete(item)}
             className="rounded-lg px-2.5 py-1.5 bg-white/5 hover:bg-ember/15 text-stone hover:text-ember-light transition-colors">
@@ -161,8 +172,10 @@ export default function AdminGaleri() {
   const fileInputRef = useRef(null)
 
   const load = useCallback(async () => {
-    const { data } = await supabase.from('gallery_items').select('*')
+    const { data, error } = await supabase
+      .from('gallery_items').select('*')
       .order('created_at', { ascending: false })
+    if (error) console.error('Load gallery error:', error)
     setItems(data ?? [])
     setLoading(false)
   }, [])
@@ -175,19 +188,18 @@ export default function AdminGaleri() {
     setQueue(q => [...q, ...valid.map(f => ({ file: f, id: `${Date.now()}-${Math.random()}` }))])
   }
 
-  const onDragOver  = (e) => { e.preventDefault(); setIsDragging(true) }
-  const onDragLeave = () => setIsDragging(false)
-  const onDrop      = (e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files) }
-
   const deleteItem = async (item) => {
-    if (!confirm(`Hapus foto "${item.alt_text}"?`)) return
-    await supabase.storage.from('gallery').remove([item.storage_path])
+    if (!confirm(`Hapus foto "${item.alt}"?`)) return
+    if (item.image_url?.includes('/gallery/')) {
+      const path = item.image_url.split('/object/public/gallery/')[1]
+      if (path) await supabase.storage.from('gallery').remove([decodeURIComponent(path)])
+    }
     await supabase.from('gallery_items').delete().eq('id', item.id)
     load()
   }
 
-  const toggleActive = async (item) => {
-    await supabase.from('gallery_items').update({ is_active: !item.is_active }).eq('id', item.id)
+  const toggleVisible = async (item) => {
+    await supabase.from('gallery_items').update({ is_visible: !item.is_visible }).eq('id', item.id)
     load()
   }
 
@@ -212,10 +224,13 @@ export default function AdminGaleri() {
           </div>
         </div>
 
-        <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); addFiles(e.dataTransfer.files) }}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-            isDragging ? 'border-gilt bg-gilt/10' : 'border-white/15 hover:border-gilt/40 hover:bg-white/3'
+          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+            isDragging ? 'border-gilt bg-gilt/10 scale-[1.01]' : 'border-white/15 hover:border-gilt/40 hover:bg-white/3'
           }`}>
           <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
             onChange={e => addFiles(e.target.files)} />
@@ -236,12 +251,14 @@ export default function AdminGaleri() {
               <p className="text-xs text-stone font-medium uppercase tracking-wider">
                 {queue.length} foto — kategori: {category}
               </p>
-              <button onClick={() => setQueue([])} className="text-xs text-stone hover:text-ember-light">Hapus semua</button>
+              <button onClick={() => setQueue([])}
+                className="text-xs text-stone hover:text-ember-light transition-colors">Hapus semua</button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {queue.map(({ file, id }) => (
                 <UploadCard key={id} file={file} category={category}
-                  onDone={load} onRemove={() => setQueue(q => q.filter(i => i.id !== id))} />
+                  onDone={load}
+                  onRemove={() => setQueue(q => q.filter(i => i.id !== id))} />
               ))}
             </div>
           </div>
@@ -264,7 +281,8 @@ export default function AdminGaleri() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {items.map(item => (
-              <GalleryItemCard key={item.id} item={item} onDelete={deleteItem} onToggle={toggleActive} />
+              <GalleryItemCard key={item.id} item={item}
+                onDelete={deleteItem} onToggle={toggleVisible} />
             ))}
           </div>
         )}
